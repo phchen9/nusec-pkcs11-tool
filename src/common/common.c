@@ -35,7 +35,7 @@ int get_pkcs_args(int argc, char** argv, struct pkcs_arguments* args) {
         return -1;
     }
 
-    struct option options[5];
+    struct option options[6];
 
     options[0].long_name  = "pin";
     options[0].short_name = 0;
@@ -53,7 +53,11 @@ int get_pkcs_args(int argc, char** argv, struct pkcs_arguments* args) {
     options[3].short_name = 0;
     options[3].flags      = GOPT_ARGUMENT_REQUIRED;
 
-    options[4].flags      = GOPT_LAST;
+    options[4].long_name  = "input-filename";
+    options[4].short_name = 0;
+    options[4].flags      = GOPT_ARGUMENT_REQUIRED;
+
+    options[5].flags      = GOPT_LAST;
 
     gopt (argv, options);
 
@@ -76,6 +80,47 @@ int get_pkcs_args(int argc, char** argv, struct pkcs_arguments* args) {
 
     if (options[3].argument) {
         args->object_id = options[3].argument;
+    }
+
+    if (options[4].argument) {
+        args->input_file = fopen(options[4].argument, "rb");
+
+        if (!args->input_file) {
+            perror(options[4].argument);
+            return -1;
+        }
+    }
+
+    return 0;
+}
+
+int hexstring_to_bytes(char *hexstring, CK_BYTE **bytes, CK_ULONG *bytes_len) 
+{
+    size_t len;
+    char *pos = hexstring;
+    size_t i;
+
+    if (!hexstring || !bytes || !bytes_len) {
+        return -1;
+    }
+
+    len = strlen(hexstring);
+    if (len % 2 != 0) {
+        fprintf(stderr, "The length of hexstring is odd number\n");
+        return -1;
+    }
+
+    len = len / 2;
+    *bytes_len = len;
+
+    *bytes = malloc(len * sizeof(CK_BYTE));
+    if (!(*bytes)) {
+        return -1;
+    }
+    
+    for (i = 0; i < len; i++) {
+        sscanf(pos, "%2hhx", &(*bytes)[i]);
+        pos += 2;
     }
 
     return 0;
@@ -127,7 +172,7 @@ int print_bytes_as_hex(char *bytes, size_t bytes_len) {
     }
 
     for (size_t i = 0; i < bytes_len; i++) {
-        printf("%02X", bytes[i]);
+        printf("0x%02X, ", bytes[i]);
     }
     printf("\n");
 

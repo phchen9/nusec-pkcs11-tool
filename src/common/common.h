@@ -30,6 +30,11 @@ CK_RV pkcs11_initialize(char *library_path);
 
 CK_RV pkcs11_open_session(const CK_UTF8CHAR_PTR pin, CK_SESSION_HANDLE_PTR session);
 CK_RV pkcs11_get_slot(CK_SLOT_ID **slot_list, CK_ULONG *slot_count);
+CK_RV pkcs11_find_by_attr(CK_SESSION_HANDLE hSession,
+                          CK_ATTRIBUTE *template,
+                          CK_ULONG attr_count,
+                          CK_ULONG *count,
+                          CK_OBJECT_HANDLE_PTR *hObject);
 void pkcs11_finalize_session(CK_SESSION_HANDLE session);
 
 struct pkcs_arguments {
@@ -37,9 +42,12 @@ struct pkcs_arguments {
     char *library;
     char *raw_peer_pub_key;
     char *object_id;
+    FILE *input_file;
 };
 
 int get_pkcs_args(int argc, char **argv, struct pkcs_arguments *args);
+
+int hexstring_to_bytes(char *hexstring, CK_BYTE **bytes, CK_ULONG *bytes_len);
 
 int bytes_to_new_hexstring(char *bytes, size_t bytes_len, unsigned char **hex);
 

@@ -5,73 +5,6 @@
 
 #include "common.h"
 
-/**
- * Find keys that match a passed CK_ATTRIBUTE template.
- * Memory will be allocated in a passed pointer, and reallocated as more keys
- * are found. The number of found keys is returned through the count parameter.
- * @param hSession
- * @param template
- * @param hObject
- * @param count
- * @return
- */
-CK_RV find_by_attr(CK_SESSION_HANDLE hSession,
-                   CK_ATTRIBUTE *template,
-                   CK_ULONG attr_count,
-                   CK_ULONG *count,
-                   CK_OBJECT_HANDLE_PTR *hObject)
-{
-    CK_RV rv;
-
-    if (NULL == hObject || NULL == template || NULL == count) {
-        return CKR_ARGUMENTS_BAD;
-    }
-
-    rv = funcs->C_FindObjectsInit(hSession, template, attr_count);
-    if (rv != CKR_OK) {
-        fprintf(stderr, "Can't initialize search\n");
-        return rv;
-    }
-
-    CK_ULONG max_objects = 25;
-    bool searching = 1;
-    *count = 0;
-    while (searching) {
-        CK_ULONG found = 0;
-        *hObject = realloc(*hObject, (*count + max_objects) * sizeof(CK_OBJECT_HANDLE));
-        if (NULL == *hObject) {
-            fprintf(stderr, "Could not allocate memory for objects\n");
-            return CKR_HOST_MEMORY;
-        }
-
-        CK_OBJECT_HANDLE_PTR loc = *hObject;
-        rv = funcs->C_FindObjects(hSession, &loc[*count], max_objects, &found);
-        if (rv != CKR_OK) {
-            fprintf(stderr, "Can't run search\n");
-            funcs->C_FindObjectsFinal(hSession);
-            return rv;
-        }
-
-        (*count) += found;
-
-        if (0 == found)
-            searching = 0;
-    }
-
-    rv = funcs->C_FindObjectsFinal(hSession);
-    if (rv != CKR_OK) {
-        fprintf(stderr, "Can't finalize search\n");
-        return rv;
-    }
-
-    if (0 == *count) {
-        fprintf(stderr, "Didn't find requested key\n");
-        return rv;
-    }
-
-    return CKR_OK;
-}
-
 CK_RV generate_ecdh_derive_key(CK_SESSION_HANDLE session,
                                CK_ULONG key_id_len,
                                CK_BYTE *key_id,
@@ -96,7 +29,7 @@ CK_RV generate_ecdh_derive_key(CK_SESSION_HANDLE session,
           { CKA_DECRYPT, &true_val, sizeof(CK_BBOOL) },
           { CKA_VALUE_LEN, &aesKeyLen, sizeof(aesKeyLen) },
           { CKA_TOKEN, &true_val, sizeof(CK_BBOOL) },
-          { CKA_LABEL, key_label, sizeof(key_label) },
+          { CKA_LABEL, key_label, (unsigned long)strlen(key_label) },
           { CKA_ID, key_id, key_id_len },
           { CKA_EXTRACTABLE, &true_val, sizeof(CK_BBOOL) }, // for debug
     };
@@ -110,39 +43,6 @@ CK_RV generate_ecdh_derive_key(CK_SESSION_HANDLE session,
 
     return rv;
 }
-
-int hexstring_to_bytes(char *hexstring, CK_BYTE **bytes, CK_ULONG *bytes_len) 
-{
-    size_t len;
-    char *pos = hexstring;
-    size_t i;
-
-    if (!hexstring || !bytes || !bytes_len) {
-        return -1;
-    }
-
-    len = strlen(hexstring);
-    if (len % 2 != 0) {
-        fprintf(stderr, "The length of hexstring is odd number\n");
-        return -1;
-    }
-
-    len = len / 2;
-    *bytes_len = len;
-
-    *bytes = malloc(len * sizeof(CK_BYTE));
-    if (!(*bytes)) {
-        return -1;
-    }
-    
-    for (i = 0; i < len; i++) {
-        sscanf(pos, "%2hhx", &(*bytes)[i]);
-        pos += 2;
-    }
-
-    return 0;
-}
-
 
 int main(int argc, char **argv)
 {
@@ -180,7 +80,7 @@ int main(int argc, char **argv)
             {CKA_ID, id, id_len},
     };
 
-    rv = find_by_attr(session, attr, 3, &count, &found_objects);
+    rv = pkcs11_find_by_attr(session, attr, sizeof(attr)/sizeof(attr[0]), &count, &found_objects);
     if (CKR_OK != rv) {
         fprintf(stderr, "Could not find object\n");
         return EXIT_FAILURE;

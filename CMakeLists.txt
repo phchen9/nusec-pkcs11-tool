@@ -9,3 +9,4 @@ include_directories(src/common)
 
 add_subdirectory(src/common)
 add_subdirectory(src/derivation)
+add_subdirectory(src/encrypt)
